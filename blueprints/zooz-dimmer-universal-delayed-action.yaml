@@ -1,0 +1,71 @@
+blueprint:
+  name: Zooz universal delayed actions
+  description: Assign a universal action on a delay to a scene event on all Zooz dimmers
+  domain: automation
+  input:
+    scene_number:
+      name: Scene
+      selector:
+        select:
+          options:
+            - label: Scene 1 (Up button)
+              value: "001"
+            - label: Scene 2 (Down button)
+              value: "002"
+    event_type:
+      name: Event
+      selector:
+        select:
+          options:
+            - label: Double tap
+              value: KeyPressed2x
+            - label: Triple tap
+              value: KeyPressed3x
+            - label: Four-tap
+              value: KeyPressed4x
+            - label: Five-tap
+              value: KeyPressed5x
+            - label: Hold
+              value: KeyHeldDown
+            - label: Release after Hold
+              value: KeyReleased
+    action_class:
+      name: Action
+      selector:
+        select:
+          options:
+            - label: Turn On
+              value: homeassistant.turn_on
+            - label: Turn Off
+              value: homeassistant.turn_off
+            - label: Toggle
+              value: homeassistant.toggle
+    delay:
+      name: Delay
+      selector:
+        duration:
+
+mode: parallel
+
+trigger:
+  - platform: event
+    event_type: zwave_js_value_notification
+
+variables:
+  scene_number: !input scene_number
+  event_type: !input event_type
+
+condition:
+  - |
+    {{ trigger.event.data.property == 'scene' and
+       trigger.event.data.property_key == scene_number and
+       trigger.event.data.value == event_type and
+       is_device_attr(trigger.event.data.device_id, 'manufacturer', 'Zooz') and
+       device_attr(trigger.event.data.device_id, 'model') in ['ZEN71 800LR', 'ZEN71', 'ZEN72 800LR', 'ZEN72', 'ZEN76 800LR', 'ZEN76', 'ZEN77 800LR', 'ZEN77'] }}
+
+action:
+  - delay: !input delay
+  - service: !input action_class
+    target:
+      entity_id: |
+        {{ expand(device_entities(trigger.event.data.device_id)) | selectattr('domain', 'in', ['light', 'switch']) | map(attribute='entity_id') | list }}
